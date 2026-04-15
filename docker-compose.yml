@@ -1,0 +1,30 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+    environment:
+      VITE_BACKEND_URL: ws://localhost:8000
+      CHOKIDAR_USEPOLLING: "true"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./data:/app/data
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-dummy_key}
+      AIVIS_URL: ${AIVIS_URL:-http://host.docker.internal:10101}
+      MAX_TURNS: ${MAX_TURNS:-10}
+      DEBUG_MODE: ${DEBUG_MODE:-false}
+
