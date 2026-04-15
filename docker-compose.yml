@@ -21,6 +21,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
       - ./data:/app/data
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-dummy_key}
