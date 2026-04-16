@@ -187,3 +187,32 @@ async def test_close_node_sets_final_flag():
     state = make_state_with_metrics(turn_count=5, mental_state="C")
     result = await close_node(state)
     assert result.get("raw_metrics", {}).get("done") is True
+
+
+# ── analysis_node 追加カバレッジ ──────────────────────────────────────────────
+
+def test_text_score_returns_half_when_total_keys_zero():
+    """total_keys=0 のとき _text_score は 0.5 を返す (analysis_node.py:64)"""
+    from app.agents.nodes.analysis_node import _text_score
+    from app.models.metrics import TextData
+    text = TextData(
+        interval_ms=0.0, backspace_count=0,
+        total_keys=0, idle_ms=0.0, total_time_ms=0.0,
+    )
+    assert _text_score(text) == 0.5
+
+
+@pytest.mark.asyncio
+async def test_analysis_node_uses_dynamic_weights_when_mode_is_dynamic():
+    """weight_mode="dynamic" のとき compute_dynamic_weights が使われる (analysis_node.py:83)"""
+    from app.agents.nodes.analysis_node import analysis_node
+    from app.services.scoring import WEIGHTS_DEFAULT
+    state = make_state_with_metrics(weight_mode="dynamic")
+    # quality を偏らせて固定重みと異なる重みが生成されるようにする
+    state["raw_metrics"]["face_quality"] = 1.0
+    state["raw_metrics"]["voice_quality"] = 0.0
+    state["raw_metrics"]["text_quality"] = 0.0
+    result = await analysis_node(state)
+    # 動的重みは quality 合計で正規化されるため face=1.0 のみ → {"face":1.0, "voice":0.0, "text":0.0}
+    # WEIGHTS_DEFAULT と異なることを確認
+    assert result["weights_used"] != WEIGHTS_DEFAULT

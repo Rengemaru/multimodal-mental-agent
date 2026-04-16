@@ -115,3 +115,54 @@ def test_websocket_message_state_has_required_fields(client):
     assert "mental_state" in state_resp
     assert "score" in state_resp
     assert "reasoning" in state_resp
+
+
+def test_websocket_message_sends_close_when_done(client):
+    """done フラグが立った state では close イベントが返る (websocket.py:95-96)"""
+    with patch("app.routers.websocket.build_graph", return_value=make_mock_graph(done=True)):
+        with client.websocket_connect("/ws/done-test") as ws:
+            ws.send_json({
+                "type": "message",
+                "data": {"text": "ありがとう", "input_mode": "text"},
+            })
+            state_resp = ws.receive_json()
+            close_resp = ws.receive_json()
+
+    assert state_resp["type"] == "state"
+    assert close_resp["type"] == "close"
+
+
+def test_websocket_message_sends_error_on_graph_exception(client):
+    """graph.ainvoke が例外を投げると error イベントが返る (websocket.py:80-82)"""
+    mock_graph = MagicMock()
+    mock_graph.ainvoke = AsyncMock(side_effect=RuntimeError("graph failed"))
+
+    with patch("app.routers.websocket.build_graph", return_value=mock_graph):
+        with client.websocket_connect("/ws/error-test") as ws:
+            ws.send_json({
+                "type": "message",
+                "data": {"text": "hello", "input_mode": "text"},
+            })
+            error_resp = ws.receive_json()
+
+    assert error_resp["type"] == "error"
+    assert "graph failed" in error_resp["message"]
+
+
+def test_websocket_voice_event_decodes_and_analyzes(client):
+    """voice イベントを送ると base64 デコード → 音声解析が実行される (websocket.py:56-60)"""
+    import base64
+    from app.models.metrics import VoiceData
+
+    fake_wav_b64 = base64.b64encode(b"RIFF\x00\x00\x00\x00WAVEfmt ").decode()
+    mock_voice = VoiceData(
+        rms_mean=0.3, rms_std=0.05,
+        pitch_mean=180.0, pitch_std=20.0,
+        speech_rate=4.0, silence_duration=1.0,
+    )
+
+    with patch("app.routers.websocket.analyze_voice", return_value=mock_voice) as mock_analyze:
+        with client.websocket_connect("/ws/voice-test") as ws:
+            ws.send_json({"type": "voice", "data": fake_wav_b64})
+
+    mock_analyze.assert_called_once()
