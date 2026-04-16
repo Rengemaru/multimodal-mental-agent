@@ -22,13 +22,19 @@ from langchain_core.messages import AIMessage, HumanMessage
 from app.agents.graph import build_graph
 from app.agents.state import make_initial_state
 from app.config import settings
+from app.services.session_logger import save_session_log
 from app.services.voice_analysis import analyze as analyze_voice
 
 router = APIRouter()
 
 
 @router.websocket("/ws/{session_id}")
-async def websocket_endpoint(websocket: WebSocket, session_id: str) -> None:
+async def websocket_endpoint(
+    websocket: WebSocket,
+    session_id: str,
+    subject_id: str = "unknown",
+    consent_version: str = "v1.0",
+) -> None:
     await websocket.accept()
 
     graph = build_graph()
@@ -98,3 +104,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str) -> None:
 
     except WebSocketDisconnect:
         pass
+    finally:
+        save_session_log(
+            state,
+            data_dir="data/sessions",
+            subject_id=subject_id,
+            consent_version=consent_version,
+        )
