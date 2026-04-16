@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     aivis_speaker_id: int = 1
     max_turns: int = 10
     debug_mode: bool = False
+    weight_mode: str = "fixed"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
