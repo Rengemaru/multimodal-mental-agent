@@ -112,3 +112,17 @@ def test_save_session_log_self_report_saved(tmp_path):
     data = json.loads(filepath.read_text(encoding="utf-8"))
     assert data["self_report"]["pre_session"] == pytest.approx(0.6)
     assert data["self_report"]["post_session"] == pytest.approx(0.7)
+
+
+def test_build_turns_skips_leading_ai_message():
+    """history の先頭が AIMessage の場合はスキップして次を処理する。"""
+    state = make_state(turns_n=0)
+    state["history"] = [
+        AIMessage(content="先頭のAIメッセージ"),  # ← session_logger.py:44 の else ブランチ
+        HumanMessage(content="ユーザー回答"),
+        AIMessage(content="次の質問"),
+    ]
+    turns = build_turns(state)
+    assert len(turns) == 1
+    assert turns[0].answer == "ユーザー回答"
+    assert turns[0].question == "次の質問"
